@@ -3,7 +3,7 @@ import type { Schedule } from '../timing/schedule';
 /** Ramp at each tone edge, avoids clicks. */
 const RAMP_S = 0.005;
 /** Lead time so the first tone is never scheduled in the past. */
-const LEAD_S = 0.1;
+const DEFAULT_LEAD_MS = 100;
 const VOLUME = 0.5;
 
 export interface Playback {
@@ -43,10 +43,11 @@ export class MorsePlayer {
 		this.current = null;
 	}
 
-	play(schedule: Schedule, toneHz: number): Playback {
+	/** `leadMs` is the time until the first tone; `position()` is negative during it. */
+	play(schedule: Schedule, toneHz: number, leadMs = DEFAULT_LEAD_MS): Playback {
 		this.stop();
 		const ctx = this.unlock();
-		const t0 = ctx.currentTime + LEAD_S;
+		const t0 = ctx.currentTime + leadMs / 1000;
 		const end = t0 + schedule.duration / 1000;
 
 		const osc = ctx.createOscillator();

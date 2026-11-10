@@ -77,6 +77,22 @@ describe('player', () => {
 		expect(ctx.gainCalls).toContainEqual(['ramp', 0, t0 + 0.06]);
 	});
 
+	it('starts the first tone leadMs after now, with a negative position before it', () => {
+		const player = new MorsePlayer();
+		player.unlock();
+		const ctx = FakeAudioContext.last;
+		ctx.currentTime = 2;
+		const playback = player.play(buildSchedule('E', speed), 600, 3100);
+		const start = ctx.oscCalls.find((c) => c[0] === 'start')!;
+		expect(start[1]).toBeCloseTo(5.1, 6);
+		expect(playback.position()).toBeCloseTo(-3100, 3);
+		ctx.currentTime = 5.1;
+		expect(playback.position()).toBeCloseTo(0, 3);
+		ctx.currentTime = 0;
+		const dflt = player.play(buildSchedule('E', speed), 600);
+		expect(dflt.position()).toBeCloseTo(-100, 3);
+	});
+
 	it('fades out on stop instead of cutting the tone', () => {
 		const player = new MorsePlayer();
 		const playback = player.play(buildSchedule('T', speed), 600);

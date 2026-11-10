@@ -74,5 +74,5 @@
 
 - [x] 13.1 Run `npm test`, `npm run check` and `npm run build`, and verify all pass without errors or warnings
 - [x] 13.2 Walk through the full flow in a phone-sized viewport: complete lesson 1 with at least 90%, see lesson 2 unlocked, check the statistics, export, reset, import, and verify progress is restored
-- [ ] 13.3 Test the built app on a real phone (via the preview server on the local network or a test deployment): sound after tapping start, mute hint on iOS, add to home screen, offline start
+- [x] 13.3 Test the built app on a real phone (via the preview server on the local network or a test deployment): sound after tapping start, mute hint on iOS, add to home screen, offline start
 - [x] 13.4 Write a short `README.md` (purpose, `npm` commands, how to deploy the `build/` folder), and verify the documented commands run as written

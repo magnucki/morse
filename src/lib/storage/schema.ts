@@ -10,9 +10,11 @@ export interface Settings {
 	charWpm: number;
 	effectiveWpm: number;
 	toneHz: number;
-	/** Exercise duration in minutes. */
+	/** Exercise duration in minutes; 0.5 is the shortest. */
 	durationMin: number;
 	theme: ThemeSetting;
+	/** Show dot/dash patterns on the lesson page. */
+	showPatterns: boolean;
 }
 
 export interface AppData {
@@ -26,11 +28,17 @@ export const LIMITS = {
 	charWpm: { min: 5, max: 50 },
 	effectiveWpm: { min: 2, max: 50 },
 	toneHz: { min: 300, max: 1200 },
-	durationMin: { min: 1, max: 10 }
+	durationMin: { min: 0.5, max: 10 }
 } as const;
 
+/** Human-readable exercise duration, e.g. "30 Sekunden", "1 Minute", "3 Minuten". */
+export function formatDuration(minutes: number): string {
+	if (minutes < 1) return `${Math.round(minutes * 60)} Sekunden`;
+	return `${minutes} ${minutes === 1 ? 'Minute' : 'Minuten'}`;
+}
+
 export function defaultSettings(): Settings {
-	return { charWpm: 20, effectiveWpm: 20, toneHz: 600, durationMin: 1, theme: 'system' };
+	return { charWpm: 20, effectiveWpm: 20, toneHz: 600, durationMin: 1, theme: 'system', showPatterns: true };
 }
 
 export function defaultData(): AppData {
@@ -61,12 +69,15 @@ function parseSettings(raw: unknown): Settings {
 	const charWpm = pick('charWpm');
 	const theme = raw.theme === undefined ? defaults.theme : raw.theme;
 	if (theme !== 'system' && theme !== 'light' && theme !== 'dark') fail('Invalid theme');
+	const showPatterns = raw.showPatterns === undefined ? defaults.showPatterns : raw.showPatterns;
+	if (typeof showPatterns !== 'boolean') fail('Invalid showPatterns');
 	return {
 		charWpm,
 		effectiveWpm: Math.min(pick('effectiveWpm'), charWpm),
 		toneHz: pick('toneHz'),
 		durationMin: pick('durationMin'),
-		theme
+		theme,
+		showPatterns
 	};
 }
 

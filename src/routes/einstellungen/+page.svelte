@@ -3,12 +3,12 @@
 	import MuteHint from '#lib/components/MuteHint.svelte';
 	import { player } from '#lib/audio/player.ts';
 	import { app } from '#lib/state/app.svelte.ts';
-	import { LIMITS, type AppData, type ThemeSetting } from '#lib/storage/schema.ts';
+	import { LIMITS, formatDuration, type AppData, type ThemeSetting } from '#lib/storage/schema.ts';
 	import { downloadExport, parseExport } from '#lib/storage/transfer.ts';
 	import { buildSchedule } from '#lib/timing/schedule.ts';
 
 	const settings = $derived(app.data.settings);
-	const durations = [1, 2, 3, 5, 10];
+	const durations = [0.5, 1, 2, 3, 5, 10];
 	const themes: { value: ThemeSetting; label: string }[] = [
 		{ value: 'system', label: 'System' },
 		{ value: 'light', label: 'Hell' },
@@ -110,7 +110,7 @@
 		<label for="duration">Dauer einer Übung</label>
 		<select id="duration" value={settings.durationMin} onchange={(e) => app.updateSettings({ durationMin: num(e) })}>
 			{#each durations as d (d)}
-				<option value={d}>{d} {d === 1 ? 'Minute' : 'Minuten'}</option>
+				<option value={d}>{formatDuration(d)}</option>
 			{/each}
 		</select>
 	</div>
@@ -131,6 +131,16 @@
 		{/each}
 	</div>
 	<p class="hint muted">„System“ folgt automatisch dem hellen oder dunklen Modus deines Geräts.</p>
+
+	<label class="check">
+		<input
+			type="checkbox"
+			checked={settings.showPatterns}
+			onchange={(e) => app.updateSettings({ showPatterns: e.currentTarget.checked })}
+		/>
+		Punkte und Striche in den Lektionen anzeigen
+	</label>
+	<p class="hint muted">Ausgeschaltet lernst du nur nach Gehör. Übersetzer und Auswertung zeigen die Muster immer.</p>
 </section>
 
 <section class="card stack">
@@ -168,6 +178,13 @@
 	}
 
 	.field label {
+		margin: 0;
+	}
+
+	.check {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
 		margin: 0;
 	}
 

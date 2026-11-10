@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultData, InvalidDataError, parseAppData, type AppData } from './schema';
+import { defaultData, formatDuration, InvalidDataError, parseAppData, type AppData } from './schema';
 import { CORRUPT_KEY, createStore, STORAGE_KEY, type KeyValueStore } from './storage';
 import { exportFileName, parseExport, serialize } from './transfer';
 
@@ -25,7 +25,7 @@ const throwingBackend: KeyValueStore = {
 
 const sample = (): AppData => ({
 	...defaultData(),
-	settings: { charWpm: 22, effectiveWpm: 10, toneHz: 700, durationMin: 3, theme: 'dark' },
+	settings: { charWpm: 22, effectiveWpm: 10, toneHz: 700, durationMin: 3, theme: 'dark', showPatterns: false },
 	progress: { unlocked: 4, lessons: { 3: { best: 92, count: 5 } } },
 	stats: { K: { recent: [{ ok: true }, { ok: false, typed: 'R' }, { ok: false, typed: null }], total: 3 } }
 });
@@ -34,14 +34,30 @@ describe('defaults', () => {
 	it('match the agreed Koch defaults', () => {
 		expect(defaultData()).toEqual({
 			version: 1,
-			settings: { charWpm: 20, effectiveWpm: 20, toneHz: 600, durationMin: 1, theme: 'system' },
+			settings: { charWpm: 20, effectiveWpm: 20, toneHz: 600, durationMin: 1, theme: 'system', showPatterns: true },
 			progress: { unlocked: 1, lessons: {} },
 			stats: {}
 		});
 	});
 });
 
+describe('duration', () => {
+	it('allows 30 seconds as the shortest exercise', () => {
+		expect(parseAppData({ version: 1, settings: { durationMin: 0.5 } }).settings.durationMin).toBe(0.5);
+		expect(() => parseAppData({ version: 1, settings: { durationMin: 0.25 } })).toThrow();
+	});
+
+	it('formats durations', () => {
+		expect([0.5, 1, 3].map(formatDuration)).toEqual(['30 Sekunden', '1 Minute', '3 Minuten']);
+	});
+});
+
 describe('validation', () => {
+	it('defaults showPatterns to true and keeps false', () => {
+		expect(parseAppData({ version: 1, settings: {} }).settings.showPatterns).toBe(true);
+		expect(parseAppData({ version: 1, settings: { showPatterns: false } }).settings.showPatterns).toBe(false);
+	});
+
 	it('accepts valid data', () => {
 		expect(parseAppData(sample())).toEqual(sample());
 	});
@@ -60,6 +76,7 @@ describe('validation', () => {
 		['not an object', 'hello'],
 		['no version', { settings: {} }],
 		['newer version', { version: 99 }],
+		['bad showPatterns', { version: 1, settings: { showPatterns: 'yes' } }],
 		['bad theme', { version: 1, settings: { theme: 'blue' } }],
 		['speed out of range', { version: 1, settings: { charWpm: 500 } }],
 		['bad lesson', { version: 1, progress: { unlocked: 41, lessons: {} } }],

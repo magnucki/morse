@@ -4,6 +4,7 @@
 	import { player, type Playback } from '../audio/player';
 	import { generateGroups, type Weights } from '../koch/groups';
 	import { app } from '../state/app.svelte';
+	import { formatDuration } from '../storage/schema';
 	import { buildSchedule } from '../timing/schedule';
 	import MuteHint from './MuteHint.svelte';
 	import ResultView from './ResultView.svelte';
@@ -18,12 +19,18 @@
 
 	let { weights, onresult, after }: Props = $props();
 
+	/** Seconds shown before the first tone, plus the player's default lead. */
+	const COUNTDOWN_S = 3;
+	const LEAD_MS = COUNTDOWN_S * 1000 + 100;
+
 	type Phase = 'idle' | 'playing' | 'done' | 'result';
 	let phase = $state<Phase>('idle');
 	let groups = $state<string[]>([]);
 	let copy = $state('');
 	let playback = $state.raw<Playback | null>(null);
 	let progress = $state(0);
+	/** 3, 2, 1 while waiting for the first tone, else 0. */
+	let countdown = $state(0);
 	let evaluation = $state<Evaluation | null>(null);
 	let feedback = $state<{ message?: string; success?: boolean } | null>(null);
 	let input = $state<HTMLTextAreaElement>();
@@ -38,7 +45,8 @@
 		evaluation = null;
 		feedback = null;
 		progress = 0;
-		const current = player.play(buildSchedule(groups.join(' '), speed), toneHz);
+		countdown = COUNTDOWN_S;
+		const current = player.play(buildSchedule(groups.join(' '), speed), toneHz, LEAD_MS);
 		playback = current;
 		phase = 'playing';
 		await tick();
@@ -71,11 +79,29 @@
 		const current = playback;
 		let frame = 0;
 		const update = () => {
-			progress = Math.min(1, Math.max(0, current.position() / current.schedule.duration));
+			const position = current.position();
+			progress = Math.min(1, Math.max(0, position / current.schedule.duration));
+			countdown = position < 0 ? Math.min(COUNTDOWN_S, Math.ceil(-position / 1000)) : 0;
 			frame = requestAnimationFrame(update);
 		};
 		frame = requestAnimationFrame(update);
 		return () => cancelAnimationFrame(frame);
+	});
+
+	// Enter starts an exercise (or the next one) when nothing else wants the key.
+	$effect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== 'Enter' || e.repeat || e.defaultPrevented) return;
+			if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+			if (phase !== 'idle' && phase !== 'result') return;
+			const target = e.target;
+			if (target instanceof Element && target.closest('input, textarea, select, button, a, [contenteditable]')) return;
+			if (document.querySelector('dialog[open]')) return;
+			e.preventDefault();
+			void start();
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
 	});
 
 	// An exercise that is left (tab hidden, page changed) is cancelled and leaves no trace.
@@ -96,9 +122,10 @@
 		<div>
 			<button type="button" class="primary big" onclick={start}>
 				<span aria-hidden="true">▶</span> Übung starten
+				<kbd class="hint-key" aria-hidden="true">Enter</kbd>
 			</button>
 			<p class="muted small">
-				{app.data.settings.durationMin} min · Zeichen {app.data.settings.charWpm} WpM · effektiv {app.data
+				{formatDuration(app.data.settings.durationMin)} · Zeichen {app.data.settings.charWpm} WpM · effektiv {app.data
 					.settings.effectiveWpm} WpM · {app.data.settings.toneHz} Hz
 			</p>
 			<MuteHint />
@@ -108,7 +135,7 @@
 			<div class="row between">
 				<span aria-live="polite">
 					{#if phase === 'playing'}
-						<span class="pulse" aria-hidden="true"></span> Läuft … {Math.round(progress * totalSeconds)} / {totalSeconds} s
+						<span class="pulse" aria-hidden="true"></span> {#if countdown > 0}Gleich geht's los … <b class="count">{countdown}</b>{:else}Läuft … {Math.round(progress * totalSeconds)} / {totalSeconds} s{/if}
 					{:else}
 						Fertig. Prüfe deine Mitschrift und werte sie aus.
 					{/if}
@@ -157,7 +184,7 @@
 		<ResultView {evaluation} {groups} />
 
 		<div class="row">
-			<button type="button" class="primary" onclick={start}>Nochmal</button>
+			<button type="button" class="primary" onclick={start}>Nochmal <kbd class="hint-key" aria-hidden="true">Enter</kbd></button>
 			{@render after?.()}
 		</div>
 	{/if}
@@ -169,6 +196,28 @@
 		padding: 0 var(--space-6);
 		font-size: 1.1rem;
 		border-radius: var(--radius);
+	}
+
+	.hint-key {
+		display: none;
+		margin-left: var(--space-2);
+		padding: 1px 6px;
+		border: 1px solid currentColor;
+		border-radius: 4px;
+		font: inherit;
+		font-size: 0.7rem;
+		opacity: 0.7;
+	}
+
+	@media (pointer: fine) {
+		.hint-key {
+			display: inline-block;
+		}
+	}
+
+	.count {
+		font-variant-numeric: tabular-nums;
+		font-size: 1.2em;
 	}
 
 	.small {
